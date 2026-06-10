@@ -33,8 +33,7 @@ flowchart TD
     K --> E
     K --> G
 
-    L[GitHub Repository] --> M[Databricks Repo]
-    M --> K
+
 ```
 
 ---

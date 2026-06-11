@@ -17,7 +17,6 @@ The solution implements:
 - Analytics Consumption Layer
 - Data Lineage and Governance
 
-The goal is to demonstrate how a Semi-Senior Data Engineer would design, build and orchestrate a production-ready analytics platform.
 
 ---
 

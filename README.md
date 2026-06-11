@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project simulates a real-world enterprise Data Engineering solution built on the Databricks Lakehouse Platform following modern Databricks best practices used by consulting companies such as Lovelytics.
+This project is a real-world enterprise Data Engineering solution built on the Databricks Lakehouse Platform following modern Databricks best practices used by consulting companies.
 
 The solution implements:
 

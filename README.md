@@ -1,158 +1,130 @@
-﻿# End-to-End Lakehouse Data Platform on Databricks
+﻿# End-to-End Data Platform with Medallion Architecture (Databricks Lakehouse)
 
-## Overview
+## Project Overview
 
-This project implements a complete modern Data Platform using Databricks Lakehouse Architecture following industry best practices commonly used by consulting firms specialized in Data & AI.
+This project simulates a real-world enterprise Data Engineering solution built on the Databricks Lakehouse Platform following modern Databricks best practices used by consulting companies such as Lovelytics.
 
-The solution follows the Medallion Architecture pattern:
+The solution implements:
 
-```mermaid
-flowchart TD
+- Medallion Architecture (Bronze → Silver → Gold)
+- Delta Lake
+- Unity Catalog
+- Data Quality Validation
+- Referential Integrity Validation
+- Incremental Processing Design
+- Databricks Workflows (Jobs)
+- Lakeflow Declarative Pipelines (DLT)
+- Analytics Consumption Layer
+- Data Lineage and Governance
 
-    A[Source CSV Files] --> B[Volumes Landing Zone]
-
-    B --> C[Bronze Layer]
-
-    C --> D[Data Quality Validation]
-
-    D --> E[Silver Layer]
-
-    E --> F[Business Transformations]
-
-    F --> G[Gold Layer]
-
-    G --> H[SQL Warehouse]
-
-    G --> I[Analytics & Reporting]
-
-    C --> J[Unity Catalog Lineage]
-    E --> J
-    G --> J
-
-    K[Workflow Orchestration] --> C
-    K --> E
-    K --> G
-
-
-```
+The goal is to demonstrate how a Semi-Senior Data Engineer would design, build and orchestrate a production-ready analytics platform.
 
 ---
 
-# Architecture
+# Business Scenario
 
-## Medallion Architecture
+A retail company receives daily sales transactions from multiple stores.
 
-```mermaid
-flowchart LR
+The company needs a centralized Lakehouse platform to:
 
-    A[Raw Files] --> B[Bronze]
-
-    B --> C[Silver]
-
-    C --> D[Gold]
-
-    D --> E[Consumption Layer]
-```
-
-### Bronze Layer
-
-Purpose:
-
-- Store raw data exactly as received
-- Preserve source information
-- Enable reprocessing
-- Support incremental ingestion
-
-Characteristics:
-
-- Minimal transformations
-- Append-only
-- Delta Tables
-- Source metadata
-
----
-
-### Silver Layer
-
-Purpose:
-
-- Data cleansing
-- Data standardization
-- Referential integrity validation
-- Business-ready datasets
-
-Characteristics:
-
-- Remove invalid records
-- Deduplicate data
-- Cast datatypes
-- Handle null values
-
----
-
-### Gold Layer
-
-Purpose:
-
-- Business consumption
-- KPIs
-- Aggregations
-- Reporting
-
-Characteristics:
-
-- Star-schema style modeling
-- Fact and Dimension tables
-- Optimized for analytics
+- Ingest raw data
+- Validate data quality
+- Build conformed dimensions
+- Generate business-ready fact tables
+- Enable analytics and reporting
+- Automate execution pipelines
 
 ---
 
 # Technology Stack
 
-| Technology | Purpose |
-|------------|----------|
-| Databricks | Data Platform |
-| Delta Lake | Storage Layer |
-| Unity Catalog | Governance |
-| Auto Loader | Incremental Ingestion |
-| PySpark | Data Engineering |
-| SQL | Analytics |
-| Workflows | Orchestration |
-| GitHub | Version Control |
-| SQL Warehouse | Consumption Layer |
+| Component | Technology |
+|------------|------------|
+| Data Platform | Databricks |
+| Storage Format | Delta Lake |
+| Catalog | Unity Catalog |
+| ETL | SQL + PySpark |
+| Orchestration | Databricks Workflows |
+| Data Pipeline | Lakeflow Declarative Pipelines (DLT) |
+| Version Control | Git + GitHub |
+| Compute | Databricks Serverless |
+| Data Governance | Unity Catalog |
 
 ---
 
-# Repository Structure
+# Data Model
+
+## Source Files
+
+### Fact Sales
 
 ```text
-ventas-lakehouse-databricks/
+fact.csv
+```
 
-│
-├── notebooks/
-│   │
-│   ├── 01_bronze_ingestion
-│   ├── 02_silver_transformations
-│   ├── 03_gold_curation
-│   └── 04_analytics
-│
-├── dlt/
-│   │
-│   └── ventas_pipeline.py
-│
-├── sql/
-│   │
-│   └── analytics_queries.sql
-│
-├── docs/
-│   │
-│   └── architecture.md
-│
-├── workflows/
-│   │
-│   └── job_definition.md
-│
-└── README.md
+| Column |
+|----------|
+| sku |
+| vendedor |
+| cantidad |
+| timestamp |
+
+---
+
+### Products
+
+```text
+producto.csv
+```
+
+| Column |
+|----------|
+| id_producto |
+| familia |
+| nombre |
+| precio_unitario |
+
+---
+
+### Employees
+
+```text
+empleados.csv
+```
+
+| Column |
+|----------|
+| id_vendedor |
+| sucursal |
+| nombre |
+
+---
+
+### Stores
+
+```text
+locales.csv
+```
+
+| Column |
+|----------|
+| id_sucursal |
+| sucursal_nombre |
+| region |
+
+---
+
+# Medallion Architecture
+
+## Architecture Overview
+
+```mermaid
+flowchart LR
+
+A[CSV Files] --> B[Bronze Layer]
+B --> C[Silver Layer]
+C --> D[Gold Layer]
+D --> E[Analytics]
 ```
 
 ---
@@ -161,11 +133,11 @@ ventas-lakehouse-databricks/
 
 ```text
 workspace
-
+│
 ├── bronze
 │   ├── raw_fact
 │   ├── raw_producto
-│   ├── raw_empleados
+│   ├── raw_vendedor
 │   └── raw_locales
 │
 ├── silver
@@ -173,276 +145,462 @@ workspace
 │   ├── dim_vendedor
 │   └── fact_venta
 │
-├── gold
-│   └── fact_ventas_final
-│
-└── audit
-    └── pipeline_log
+└── gold
+    └── fact_ventas_final
 ```
 
 ---
 
-# Data Flow
+# Bronze Layer
 
-```mermaid
-flowchart TD
+## Objective
 
-    A[raw_fact.csv]
-    B[producto.csv]
-    C[empleados.csv]
-    D[locales.csv]
+Store raw data exactly as received from source systems.
 
-    A --> E[Bronze]
-    B --> E
-    C --> E
-    D --> E
+No business transformations are applied.
 
-    E --> F[Data Validation]
+---
 
-    F --> G[Silver Dimensions]
+## Bronze Tables
 
-    G --> H[Gold Fact Table]
-
-    H --> I[Business Analytics]
+```text
+workspace.bronze.raw_fact
+workspace.bronze.raw_producto
+workspace.bronze.raw_vendedor
+workspace.bronze.raw_locales
 ```
 
 ---
 
-# Data Quality Rules
+## Responsibilities
 
-## Fact Table
-
-Validate:
-
-- SKU exists in Product Dimension
-- Vendor exists in Vendor Dimension
-- Quantity > 0
-- Date not null
+- Preserve source data
+- Enable reprocessing
+- Data lineage
+- Raw audit layer
 
 ---
 
-## Product Dimension
+# Silver Layer
 
-Validate:
+## Objective
 
-- Product ID not null
-- Unit Price > 0
-
----
-
-## Vendor Dimension
-
-Validate:
-
-- Vendor ID not null
-- Branch exists
-- Region exists
+Clean, standardize and validate data.
 
 ---
 
-# Incremental Processing
+## Referential Integrity Validation
 
-The platform supports incremental ingestion using Auto Loader.
+### Product Validation
+
+```sql
+SELECT COUNT(*)
+FROM workspace.bronze.raw_fact f
+LEFT JOIN workspace.bronze.raw_producto p
+ON f.sku = p.id_producto
+WHERE p.id_producto IS NULL
+```
+
+---
+
+### Vendor Validation
+
+```sql
+SELECT COUNT(*)
+FROM workspace.bronze.raw_fact f
+LEFT JOIN workspace.bronze.raw_vendedor v
+ON f.vendedor = v.id_vendedor
+WHERE v.id_vendedor IS NULL
+```
+
+---
+
+## Dimension: Product
+
+```text
+workspace.silver.dim_producto
+```
+
+### Transformations
+
+- Cast IDs
+- Remove duplicates
+- Validate prices > 0
+- Delta format
+
+---
+
+## Dimension: Vendor
+
+```text
+workspace.silver.dim_vendedor
+```
+
+### Attributes
+
+| Column |
+|----------|
+| id_vendedor |
+| vendedor_nombre |
+| sucursal_nombre |
+| region |
+
+---
+
+### Business Logic
 
 ```mermaid
 flowchart LR
 
-    A[New CSV Files]
+A[raw_vendedor]
+B[raw_locales]
 
-    --> B[Auto Loader]
-
-    --> C[Bronze]
-
-    --> D[Silver]
-
-    --> E[Gold]
+A --> C[dim_vendedor]
+B --> C
 ```
-
-Features:
-
-- Schema evolution
-- Checkpointing
-- Idempotent execution
 
 ---
 
-# Workflow Orchestration
+## Fact Table
+
+```text
+workspace.silver.fact_venta
+```
+
+### Transformations
+
+- Referential integrity enforcement
+- Remove nulls
+- Quantity > 0
+- Date decomposition
+
+---
+
+### Final Schema
+
+| Column |
+|----------|
+| id_producto |
+| id_vendedor |
+| cantidad |
+| dia |
+| mes |
+| ano |
+| ing_date |
+
+---
+
+# Gold Layer
+
+## Objective
+
+Provide analytics-ready datasets.
+
+---
+
+## Gold Architecture
+
+```mermaid
+flowchart LR
+
+A[dim_producto]
+B[dim_vendedor]
+C[fact_venta]
+
+A --> D[fact_ventas_final]
+B --> D
+C --> D
+```
+
+---
+
+## Gold Fact Table
+
+```text
+workspace.gold.fact_ventas_final
+```
+
+---
+
+### Business Logic
+
+```sql
+monto_total =
+cantidad * precio_unitario
+```
+
+---
+
+### Additional Fields
+
+| Column |
+|----------|
+| monto_total |
+| gold_load_timestamp |
+
+---
+
+# Lakeflow Declarative Pipelines (DLT)
+
+## Purpose
+
+Automate Silver and Gold data transformations while enforcing data quality expectations.
+
+---
+
+## Pipeline
+
+```text
+ventas_pipeline
+```
+
+---
+
+## DLT Data Quality Rules
+
+### Fact Sales
+
+```python
+@dlt.expect_all_or_drop({
+    "cantidad_positiva": "cantidad > 0",
+    "producto_valido": "id_producto IS NOT NULL",
+    "vendedor_valido": "id_vendedor IS NOT NULL"
+})
+```
+
+---
+
+## DLT Flow
+
+```mermaid
+flowchart LR
+
+A[Bronze Tables]
+--> B[DLT Silver Tables]
+--> C[DLT Gold Fact]
+```
+
+---
+
+# Databricks Workflow
+
+## Enterprise Orchestration
+
+The entire platform is orchestrated using Databricks Jobs.
+
+---
+
+## Workflow DAG
 
 ```mermaid
 flowchart TD
 
-    A[Bronze Ingestion]
+A[Bronze Ingestion]
 
-    --> B[Silver Transformations]
+--> B[Silver Transformations]
 
-    --> C[Gold Curation]
+--> C[DLT Gold Pipeline]
 
-    --> D[Analytics Layer]
+--> D[Analytics Notebook]
 ```
-
-Workflow Features:
-
-- Retry Policy
-- Dependency Management
-- Scheduling
-- Monitoring
 
 ---
 
-# Logging Architecture
+## Workflow Components
 
-Audit table:
+### Task 1
 
 ```text
-workspace.audit.pipeline_log
+01_bronze_ingestion
 ```
 
-Columns:
+Responsibilities:
 
-| Column | Description |
-|----------|-------------|
-| pipeline_name | Executed process |
-| execution_time | Execution timestamp |
-| records_processed | Number of processed rows |
-| status | SUCCESS / FAILED |
+- Load raw files
+- Create Bronze Delta tables
 
 ---
 
-# Delta Lake Optimization
+### Task 2
 
-Implemented:
-
-## Partitioning
-
-```sql
-PARTITIONED BY (mes)
+```text
+02_silver_transformations
 ```
+
+Responsibilities:
+
+- Data cleansing
+- Referential integrity
+- Create dimensions
+- Create fact table
 
 ---
 
-## ZORDER
+### Task 3
 
-```sql
-OPTIMIZE workspace.gold.fact_ventas_final
-ZORDER BY (id_producto);
+```text
+ventas_pipeline
 ```
+
+Responsibilities:
+
+- DLT execution
+- Data quality validation
+- Gold layer creation
 
 ---
 
-## History
+### Task 4
 
-```sql
-DESCRIBE HISTORY workspace.gold.fact_ventas_final;
+```text
+04_analytics
 ```
+
+Responsibilities:
+
+- KPI generation
+- Business reporting
+- Validation queries
 
 ---
 
-## Metadata
-
-```sql
-DESCRIBE DETAIL workspace.gold.fact_ventas_final;
-```
-
----
-
-# Analytical KPIs
-
-Examples:
-
-## Revenue by Product
-
-```sql
-SELECT
-    id_producto,
-    SUM(monto_total)
-FROM workspace.gold.fact_ventas_final
-GROUP BY id_producto;
-```
-
----
+# Analytics Examples
 
 ## Revenue by Region
 
 ```sql
 SELECT
     region,
-    SUM(monto_total)
+    SUM(monto_total) AS revenue
 FROM workspace.gold.fact_ventas_final
-GROUP BY region;
+GROUP BY region
+ORDER BY revenue DESC
 ```
 
 ---
 
-## Top Vendors
+## Top Products
 
 ```sql
 SELECT
-    vendedor_nombre,
+    nombre,
+    SUM(monto_total) revenue
+FROM workspace.gold.fact_ventas_final
+GROUP BY nombre
+ORDER BY revenue DESC
+LIMIT 10
+```
+
+---
+
+## Sales Trend
+
+```sql
+SELECT
+    ano,
+    mes,
     SUM(monto_total)
 FROM workspace.gold.fact_ventas_final
-GROUP BY vendedor_nombre
-ORDER BY SUM(monto_total) DESC;
+GROUP BY ano, mes
+ORDER BY ano, mes
 ```
 
 ---
 
-# Git Workflow
+# Data Quality Controls
 
-Feature Branch Strategy
+Implemented validations:
 
-```text
-main
-
-├── feature/bronze
-├── feature/silver
-├── feature/gold
-├── feature/dlt
-└── feature/workflow
-```
-
-Typical Commands
-
-```bash
-git checkout -b feature/bronze
-
-git add .
-
-git commit -m "Implemented Bronze Layer"
-
-git push origin feature/bronze
-```
+- Null handling
+- Referential integrity
+- Duplicate removal
+- Positive quantities
+- Positive prices
+- DLT Expectations
 
 ---
 
-# Enterprise Best Practices
+# Delta Lake Features
 
 Implemented:
 
-- Medallion Architecture
+- Delta Tables
+- ACID Transactions
+- Time Travel Ready
+- Schema Enforcement
+
+Recommended Production Optimizations:
+
+```sql
+OPTIMIZE workspace.gold.fact_ventas_final
+ZORDER BY (id_producto)
+```
+
+---
+
+```sql
+VACUUM workspace.gold.fact_ventas_final
+RETAIN 168 HOURS
+```
+
+---
+
+# Project Repository Structure
+
+```text
+project/
+│
+├── notebooks/
+│   ├── 01_bronze_ingestion
+│   ├── 02_silver_transformations
+│   └── 04_analytics
+│
+├── dlt/
+│   └── ventas_pipeline.py
+│
+├── data/
+│   ├── fact.csv
+│   ├── producto.csv
+│   ├── empleados.csv
+│   └── locales.csv
+│
+├── docs/
+│
+└── README.md
+```
+
+---
+
+# Skills Demonstrated
+
+This project demonstrates:
+
 - Delta Lake
 - Unity Catalog
-- Data Quality Rules
+- SQL Advanced
+- PySpark
+- Data Modeling
+- ETL/ELT
+- Medallion Architecture
+- Data Quality
 - Referential Integrity
-- Partitioning
-- ZORDER
-- Workflow Orchestration
-- Git Version Control
-- Incremental Loads
-- Audit Logging
+- Lakeflow Declarative Pipelines
+- Databricks Workflows
+- Production Data Engineering Practices
 
 ---
 
 # Future Improvements
 
-- Delta Live Tables
-- Lakeflow Declarative Pipelines
-- Data Contracts
+- Auto Loader ingestion
+- Streaming ingestion
+- SCD Type 2 Dimensions
 - CI/CD with GitHub Actions
 - Databricks Asset Bundles
-- Unit Testing Framework
-- Automated Data Quality Monitoring
-
----
+- Automated Unit Testing
+- Monitoring & Alerting
+- Data Contracts
+- Data Observability
 
 # Author
 
